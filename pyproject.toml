@@ -22,7 +22,11 @@ classifiers = [
 
 dependencies = [
   "torch>=2.2.0",
-  "transformers @ git+https://github.com/Biohub/transformers.git@main",
+  # Stock transformers: the ESMC / ESMFold2 modeling code is vendored under
+  # esm/transformers/ and resolves its `from ...x import y` imports through the
+  # shims there, so the Biohub fork is no longer required. See
+  # esm/transformers/VENDORED.md.
+  "transformers>=5.0",
   "ipython",
   "einops",
   "biotite>=1.0.0",
