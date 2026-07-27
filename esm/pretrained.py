@@ -1,4 +1,5 @@
 import inspect
+from pathlib import Path
 from typing import Callable
 
 import torch
@@ -23,6 +24,32 @@ from esm.utils.constants.models import (
 )
 
 ModelBuilder = Callable[[torch.device | str], nn.Module]
+
+
+def _load_nested_pth(
+    model: nn.Module, root: Path, filename: str, device: torch.device | str
+) -> None:
+    """Load a checkpoint stored as a nested ``.pth`` under ``root/data/weights/``.
+
+    ``huggingface_hub.load_torch_model`` only discovers a sharded checkpoint with an
+    index or a single model file at the directory root, so it cannot find the
+    ESM-C 300M/600M weights, which live at ``data/weights/<filename>``. The 6B
+    checkpoint is sharded safetensors and still goes through ``load_torch_model``.
+
+    Args:
+        model: Model to load weights into, typically built under ``init_empty_weights``.
+        root: Snapshot directory returned by :func:`data_root`.
+        filename: Weight file name inside ``root/data/weights/``.
+        device: Device to map the loaded tensors onto.
+
+    Raises:
+        FileNotFoundError: If the weight file is not present under ``root``.
+    """
+    path = Path(root) / "data" / "weights" / filename
+    if not path.is_file():
+        raise FileNotFoundError(f"ESM-C weights not found: {path}")
+    state_dict = torch.load(path, map_location=device)
+    model.load_state_dict(state_dict, assign=True)
 
 
 def ESM3_structure_encoder_v0(device: torch.device | str = "cpu"):
@@ -72,7 +99,7 @@ def ESMC_300M_202412(device: torch.device | str = "cpu", use_flash_attn: bool = 
             tokenizer=get_esmc_model_tokenizers(),
             use_flash_attn=use_flash_attn,
         ).eval()
-    load_torch_model(model, data_root("esmc-300"))
+    _load_nested_pth(model, data_root("esmc-300"), "esmc_300m_2024_12_v0.pth", device)
     model = model.to(device)
     return model
 
@@ -86,7 +113,7 @@ def ESMC_600M_202412(device: torch.device | str = "cpu", use_flash_attn: bool = 
             tokenizer=get_esmc_model_tokenizers(),
             use_flash_attn=use_flash_attn,
         ).eval()
-    load_torch_model(model, data_root("esmc-600"))
+    _load_nested_pth(model, data_root("esmc-600"), "esmc_600m_2024_12_v0.pth", device)
     model = model.to(device)
     return model
 
