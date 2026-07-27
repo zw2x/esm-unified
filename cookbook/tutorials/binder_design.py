@@ -30,22 +30,22 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
-from transformers.models.esmc.modeling_esmc import ESMCForMaskedLM
-from transformers.models.esmc.tokenization_esmc import ESMCTokenizer
-from transformers.models.esmfold2.modeling_esmfold2_common import (
+from esm.transformers.models.esmc.modeling_esmc import ESMCForMaskedLM
+from esm.transformers.models.esmc.tokenization_esmc import ESMCTokenizer
+from esm.transformers.models.esmfold2.modeling_esmfold2_common import (
     BACKEND_CUEQ,
     BACKEND_FUSED,
     CUE_AVAILABLE,
     TRITON_KERNELS_AVAILABLE,
     PairUpdateBlock,
 )
-from transformers.models.esmfold2.modeling_esmfold2_common import (
+from esm.transformers.models.esmfold2.modeling_esmfold2_common import (
     _seed_context as seed_context,
 )
-from transformers.models.esmfold2.modeling_esmfold2_experimental import (
+from esm.transformers.models.esmfold2.modeling_esmfold2_experimental import (
     ESMFold2ExperimentalModel,
 )
-from transformers.models.esmfold2.modeling_esmfold2_experimental import (
+from esm.transformers.models.esmfold2.modeling_esmfold2_experimental import (
     MSAEncoder as ESMFold2MSAEncoder,
 )
 
