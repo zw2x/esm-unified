@@ -278,6 +278,10 @@ class ESMFold2InputBuilder:
         pair_chains_t = output.get("pair_chains_iptm")
         residue_index_t = output.get("residue_index")
         entity_id_t = output.get("entity_id")
+        # Trunk intermediates: one per complex, not per diffusion sample.
+        single_t = output.get("single_states")
+        pair_t = output.get("pair_states")
+        lm_t = output.get("lm_hidden_states")
 
         results: list[MolecularComplexResult] = []
         for i in range(Bm):
@@ -317,6 +321,15 @@ class ESMFold2InputBuilder:
                         if entity_id_t is not None
                         else None
                     ),
+                    single_states=(
+                        single_t[0].detach().cpu() if single_t is not None else None
+                    ),
+                    pair_states=(
+                        pair_t[0].detach().cpu() if pair_t is not None else None
+                    ),
+                    lm_hidden_states=(
+                        lm_t[0].detach().cpu() if lm_t is not None else None
+                    ),
                 )
             )
 
@@ -332,6 +345,7 @@ class ESMFold2InputBuilder:
         num_loops: int = 20,
         num_sampling_steps: int = 200,
         num_diffusion_samples: int = 1,
+        output_hidden_states: bool = False,
         seed: int | None = None,
         noise_scale: float | None = None,
         step_scale: float | None = None,
@@ -353,6 +367,9 @@ class ESMFold2InputBuilder:
             User-facing input specification.
         num_loops, num_sampling_steps, num_diffusion_samples : int
             Inference knobs forwarded to the model.
+        output_hidden_states : bool
+            Also return the trunk's single/pair states and the LM hidden states on
+            each MolecularComplexResult, instead of discarding them inside forward.
         seed : int, optional
             Seeds both input prep (SMILES conformer generation) and diffusion sampling.
         noise_scale, step_scale, max_inference_sigma, early_exit
@@ -400,6 +417,7 @@ class ESMFold2InputBuilder:
                     output = model(
                         **features,
                         num_loops=num_loops,
+                        output_hidden_states=output_hidden_states,
                         num_sampling_steps=num_sampling_steps,
                         num_diffusion_samples=num_diffusion_samples,
                         early_exit=early_exit,

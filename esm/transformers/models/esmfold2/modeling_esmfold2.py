@@ -28,7 +28,9 @@ try:
     )
 
     TE_AVAILABLE = True
-except ImportError:
+# Not just ImportError: a half-installed TE (core wheel without the torch extension)
+# raises FileNotFoundError here, which would make this module unimportable.
+except Exception:
     te = None  # type: ignore[assignment]
     DelayedScaling = None  # type: ignore[assignment]
     Format = None  # type: ignore[assignment]
@@ -875,6 +877,7 @@ class ESMFold2Model(PreTrainedModel):
         input_ids: Tensor | None = None,
         lm_hidden_states: Tensor | None = None,
         num_loops: int | None = None,
+        output_hidden_states: bool = False,
         num_diffusion_samples: int | None = None,
         num_sampling_steps: int | None = None,
         lm_mask_pct: float | None = None,
@@ -932,6 +935,7 @@ class ESMFold2Model(PreTrainedModel):
         ).unsqueeze(-1)
         atom_to_token = atom_to_token * atm_mask.long()
 
+        intermediates: dict[str, Tensor | None] = {}
         use_amp = ref_pos.device.type == "cuda"
         with torch.amp.autocast("cuda", enabled=use_amp, dtype=torch.bfloat16):
             x_inputs = self.inputs_embedder(
@@ -981,6 +985,10 @@ class ESMFold2Model(PreTrainedModel):
             lm_z: Tensor | None = None
             if lm_hidden_states is not None:
                 lm_z = self.language_model(lm_hidden_states.detach())
+            if output_hidden_states:
+                intermediates["lm_hidden_states"] = (
+                    None if lm_hidden_states is None else lm_hidden_states.detach()
+                )
             del lm_hidden_states
 
             pair_mask = tok_mask[:, :, None].float() * tok_mask[:, None, :].float()
@@ -1027,6 +1035,9 @@ class ESMFold2Model(PreTrainedModel):
             z = self.parcae_coda(z, pair_attention_mask=pair_mask)
 
             z = z.float()
+        if output_hidden_states:
+            intermediates["single_states"] = x_inputs.detach()
+            intermediates["pair_states"] = z.detach()
         distogram_logits = self.distogram_head(z + z.transpose(-2, -3))
 
         structure_output = self.structure_head.sample(
@@ -1078,6 +1089,7 @@ class ESMFold2Model(PreTrainedModel):
         )
         output["residue_index"] = residue_index
         output["entity_id"] = entity_id
+        output.update(intermediates)
         return output
 
     @torch.no_grad()

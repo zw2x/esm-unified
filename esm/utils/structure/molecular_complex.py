@@ -45,6 +45,12 @@ class MolecularComplexResult:
     output_embedding_pair_pooled: torch.Tensor | None = None
     residue_index: torch.Tensor | None = None
     entity_id: torch.Tensor | None = None
+    # Trunk intermediates, populated when the model is run with
+    # output_hidden_states=True. `lm_hidden_states` is [L, n_lm_layers + 1, d_lm] --
+    # the whole ESMC layer stack, which is what the trunk's LM shim consumes.
+    single_states: torch.Tensor | None = None  # [L, d_inputs]
+    pair_states: torch.Tensor | None = None  # [L, L, d_pair]
+    lm_hidden_states: torch.Tensor | None = None
     sae_features: np.ndarray | None = None  # [L, n_features]
     # Atom-expanded token count L
     num_tokens: int | None = None

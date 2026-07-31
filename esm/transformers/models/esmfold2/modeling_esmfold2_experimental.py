@@ -800,6 +800,7 @@ class ESMFold2ExperimentalModel(PreTrainedModel):
         res_type_soft: Tensor | None = None,
         # Inference config
         num_loops: int | None = None,
+        output_hidden_states: bool = False,
         num_diffusion_samples: int | None = None,
         num_sampling_steps: int | None = None,
         lm_mask_pct: float | None = None,
@@ -884,6 +885,7 @@ class ESMFold2ExperimentalModel(PreTrainedModel):
 
         atom_to_token = atom_to_token * atm_mask.long()
 
+        intermediates: dict[str, Tensor | None] = {}
         use_amp = ref_pos.device.type == "cuda"
         with (
             torch.set_grad_enabled(res_type_soft is not None),
@@ -942,6 +944,10 @@ class ESMFold2ExperimentalModel(PreTrainedModel):
                     lm_hidden_states.detach(), lm_dropout=self.config.lm_dropout
                 )
                 z_init = z_init + lm_z.to(z_init.dtype)
+            if output_hidden_states:
+                intermediates["lm_hidden_states"] = (
+                    None if lm_hidden_states is None else lm_hidden_states.detach()
+                )
 
             # Inference-time MSA diversity: column mask is applied once here
             # (shared across recycling loops); row subsampling is deferred to
@@ -1042,6 +1048,9 @@ class ESMFold2ExperimentalModel(PreTrainedModel):
                     prev_disto_probs = cur_probs.detach()
 
             # 6. Distogram (inside the trunk autocast so z stays bf16)
+            if output_hidden_states:
+                intermediates["single_states"] = x_inputs.detach()
+                intermediates["pair_states"] = z.detach().float()
             distogram_logits = self.distogram_head(z + z.transpose(-2, -3))
 
         # 7. Diffusion sampling (always no_grad; optional seed for parity)
@@ -1098,6 +1107,7 @@ class ESMFold2ExperimentalModel(PreTrainedModel):
             )
             output["residue_index"] = residue_index
             output["entity_id"] = entity_id
+            output.update(intermediates)
 
             return output
 

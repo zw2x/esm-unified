@@ -70,7 +70,9 @@ try:
     import transformer_engine.pytorch as te  # type: ignore[import-untyped]
 
     _te_available = True
-except ImportError:
+# Not just ImportError: a half-installed TE (core wheel without the torch extension)
+# raises FileNotFoundError here, which would make this module unimportable.
+except Exception:
     te = None  # type: ignore[assignment]
     _te_available = False
 
@@ -995,11 +997,12 @@ class ESMCPreTrainedModel(PreTrainedModel):
         self._register_state_dict_hook(_drop_te_extra_state)
 
     def _init_weights(self, module: nn.Module):
+        # nn.init, not `.data` in place: only the former is guarded against clobbering loads.
         std = self.config.initializer_range
         if isinstance(module, nn.Linear):
-            module.weight.data.normal_(mean=0.0, std=std)
+            nn.init.normal_(module.weight, mean=0.0, std=std)
             if module.bias is not None:
-                module.bias.data.zero_()
+                nn.init.zeros_(module.bias)
         elif isinstance(module, RotaryEmbedding):
             module.reset_parameters(device=self.device)
 
